@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>JalSetu — ISTS pooling station siting for Hydro &amp; PSP</title>
+  <link rel="preconnect" href="https://unpkg.com" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    :root { --navy:#0b3d5c; --teal:#0e6b6b; --gold:#c4a35a; --ink:#1c2430; --muted:#5b6773; --bg:#f3f6f7; --card:#fff; --line:#d5dee3; --ok:#1b7f5a; --warn:#9a6b12; --bad:#8b2e2e; }
+    * { box-sizing: border-box; }
+    html, body { margin:0; height:100%; font-family:"Segoe UI", Calibri, system-ui, sans-serif; color:var(--ink); background:var(--bg); }
+    header { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:10px 18px; background:var(--navy); color:#fff; }
+    .brand { display:flex; flex-direction:column; }
+    .brand strong { font-size:18px; letter-spacing:.04em; }
+    .brand span { font-size:11px; opacity:.85; }
+    .hdr-actions { display:flex; gap:8px; flex-wrap:wrap; }
+    button, .btn { border:0; border-radius:6px; padding:8px 12px; cursor:pointer; font:inherit; font-size:13px; }
+    .btn-gold { background:var(--gold); color:#1a1408; font-weight:600; }
+    .btn-lite { background:#1a5678; color:#fff; }
+    .btn-teal { background:var(--teal); color:#fff; }
+    .layout { display:grid; grid-template-columns:360px 1fr 420px; height:calc(100% - 96px); }
+    aside, .results { overflow:auto; background:var(--card); }
+    aside { border-right:1px solid var(--line); padding:14px; }
+    .results { border-left:1px solid var(--line); padding:12px; }
+    label { display:block; font-size:11px; color:var(--muted); margin:10px 0 4px; text-transform:uppercase; letter-spacing:.04em; }
+    input, select { width:100%; padding:8px; border:1px solid var(--line); border-radius:6px; font:inherit; }
+    .row { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+    #map { height:100%; }
+    .disclaimer { background:#fff4d6; color:#5c4308; font-size:12px; padding:8px 18px; border-top:1px solid #efd58a; border-bottom:1px solid #efd58a; }
+    .card { border:1px solid var(--line); border-radius:8px; padding:10px; margin-bottom:8px; background:#fff; }
+    .card h3 { margin:0 0 4px; font-size:14px; }
+    .meta { font-size:12px; color:var(--muted); }
+    .badge { display:inline-block; font-size:10px; padding:2px 6px; border-radius:99px; margin-right:4px; background:#e8eef1; }
+    .badge.ok { background:#d9f3e7; color:var(--ok); }
+    .badge.warn { background:#fcebc0; color:var(--warn); }
+    .badge.bad { background:#f8d7d7; color:var(--bad); }
+    .score { float:right; font-weight:700; color:var(--navy); }
+    .muted { color:var(--muted); font-size:12px; }
+    .samples button { margin:0 4px 4px 0; background:#e8eef1; }
+    dialog { border:0; border-radius:10px; width:min(720px,92vw); padding:0; }
+    dialog::backdrop { background:rgba(11,61,92,.35); }
+    .dlg { padding:18px 20px 22px; }
+    .dlg h2 { margin:0 0 8px; color:var(--navy); }
+    a { color:var(--teal); }
+    table.refresh { width:100%; border-collapse:collapse; font-size:12px; }
+    table.refresh th, table.refresh td { border-bottom:1px solid var(--line); text-align:left; padding:6px 4px; vertical-align:top; }
+    @media (max-width:1100px) { .layout { grid-template-columns:1fr; grid-template-rows:auto 420px 1fr; height:auto; } #map { min-height:420px; } }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <strong>JalSetu</strong>
+      <span>ISTS pooling-station siting · Hydro &amp; pumped storage · warehouse <em id="whver"></em></span>
+    </div>
+    <div class="hdr-actions">
+      <button class="btn-lite" id="btnRefresh">Refresh CTU sources</button>
+      <button class="btn-lite" id="btnAbout">About / disclaimer</button>
+      <a class="btn btn-gold" href="https://github.com/avinashiitd/jalsetu" target="_blank" rel="noopener">Source repo</a>
+    </div>
+  </header>
+  <div class="disclaimer">Planning aid only — not a Connectivity or GNA grant. CTUIL grants. Distances are geodesic. v1 is ISTS-only.</div>
+  <div class="layout">
+    <aside>
+      <h2 style="margin:0 0 8px;font-size:16px;color:var(--navy)">Project card</h2>
+      <label>Click the map or paste coordinates</label>
+      <div class="row">
+        <input id="lat" type="number" step="0.0001" placeholder="Latitude" />
+        <input id="lon" type="number" step="0.0001" placeholder="Longitude" />
+      </div>
+      <label>Project name (optional)</label>
+      <input id="pname" placeholder="e.g. Luhri Stage-I HEP" />
+      <div class="row"><div><label>Type</label><select id="ptype"><option>HEP</option><option>PSP</option><option>HEP+PSP</option></select></div><div><label>Capacity MW *</label><input id="mw" type="number" min="1" value="210" /></div></div>
+      <div class="row"><div><label>Pump MW (PSP)</label><input id="pump" type="number" min="0" /></div><div><label>SCOD year</label><input id="scod" type="number" value="2029" /></div></div>
+      <div class="row"><div><label>Voltage</label><select id="kv"><option value="auto">Auto</option><option>220</option><option>400</option><option>765</option></select></div><div><label>Search ring (km)</label><select id="ring"><option value="80">80</option><option value="150" selected>150</option><option value="300">300</option><option value="600">600</option></select></div></div>
+      <label style="display:flex;align-items:center;gap:8px;text-transform:none;margin-top:12px"><input id="hydroOnly" type="checkbox" checked style="width:auto" /> Prefer hydro-relevant ISTS first</label>
+      <label style="display:flex;align-items:center;gap:8px;text-transform:none"><input id="hideConstrained" type="checkbox" style="width:auto" /> Hide constrained stations</label>
+      <div style="margin-top:14px"><button class="btn-teal" id="btnGo" style="width:100%">Find pooling stations</button></div>
+      <p class="muted" style="margin-top:14px">Samples</p>
+      <div class="samples" id="samples"></div>
+    </aside>
+    <div id="map"></div>
+    <section class="results">
+      <h2 style="margin:0 0 8px;font-size:16px;color:var(--navy)">Ranked ISTS options <span class="muted" id="resCount"></span></h2>
+      <div id="results"><p class="muted">Set a pin and run a search.</p></div>
+    </section>
+  </div>
+  <dialog id="dlgRefresh"><div class="dlg"><h2>Monthly CTU refresh</h2><table class="refresh" id="srcTable"></table><p class="muted" id="ingestList"></p><button class="btn-teal" id="closeRefresh">Close</button></div></dialog>
+  <dialog id="dlgAbout"><div class="dlg"><h2>JalSetu</h2><p>Planning-grade shortlist of nearest suitable ISTS pooling stations for HEP/PSP. Not a CTU grant.</p><button class="btn-teal" id="closeAbout">Close</button></div></dialog>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="data/stations.js"></script>
+  <script>
+    const DATA = window.JALSETU_DATA, SOURCES = window.JALSETU_SOURCES;
+    document.getElementById("whver").textContent = DATA.warehouse_version;
+    const map = L.map("map").setView([22.8,79.2],5);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:18,attribution:"&copy; OpenStreetMap"}).addTo(map);
+    const stationLayer = L.layerGroup().addTo(map), projectLayer = L.layerGroup().addTo(map);
+    function qualityColor(s){ if(s.constrained) return "#8b2e2e"; if(s.hydro_relevant) return "#0e6b6b"; if(s.location_quality==="official") return "#0b3d5c"; if(s.location_quality==="tentative") return "#c4a35a"; return "#7a8490"; }
+    DATA.stations.forEach(s => { if(s.lat==null) return; const m=L.circleMarker([s.lat,s.lon],{radius:s.hydro_relevant?7:5,color:qualityColor(s),weight:2,fillOpacity:.85,fillColor:qualityColor(s)}); m.bindPopup(`<strong>${s.name}</strong><br>${s.region} · ${s.state}<br>${(s.voltages||[]).join("/")} kV<br><em>${s.location_quality}</em>`); stationLayer.addLayer(m); });
+    function setProject(lat,lon){ projectLayer.clearLayers(); L.marker([lat,lon]).addTo(projectLayer); }
+    map.on("click", e => { document.getElementById("lat").value=e.latlng.lat.toFixed(5); document.getElementById("lon").value=e.latlng.lng.toFixed(5); setProject(e.latlng.lat,e.latlng.lng); });
+    function hav(aLat,aLon,bLat,bLon){ const R=6371,t=Math.PI/180,dLat=(bLat-aLat)*t,dLon=(bLon-aLon)*t; const x=Math.sin(dLat/2)**2+Math.cos(aLat*t)*Math.cos(bLat*t)*Math.sin(dLon/2)**2; return 2*R*Math.asin(Math.min(1,Math.sqrt(x))); }
+    function suggestedKv(mw){ return mw<400?220:400; }
+    function scoreStation(s,ctx){ if(s.lat==null) return null; const km=hav(ctx.lat,ctx.lon,s.lat,s.lon); if(km>ctx.ring) return null; if(ctx.hideConstrained&&s.constrained) return null; const needKv=ctx.kv==="auto"?suggestedKv(ctx.mw):Number(ctx.kv); const hasKv=(s.voltages||[]).some(v=>v>=needKv||v===needKv); const cap=s.constrained?0.15:(/plan/i.test(s.status||"")?0.55:0.9); const time=/exist/i.test(s.status||"")?1:/under/i.test(s.status||"")?0.75:0.45; const dist=Math.max(0,1-km/ctx.ring); const basin=s.hydro_relevant?1:0.35; const volt=hasKv?1:0.4; const conf=s.location_quality==="official"?1:s.location_quality==="tentative"?0.7:s.location_quality==="geocoded"?0.45:0.2; const hydroBoost=ctx.hydroOnly&&s.hydro_relevant?8:0; const total=100*(0.30*cap+0.20*time+0.20*dist+0.15*basin+0.10*volt+0.05*conf)+hydroBoost; let verdict=s.constrained?"Unsuitable":(s.hydro_relevant&&km<120&&hasKv?"Suitable":"Conditional"); const why=`${Math.round(km)} km geodesic; ${s.location_quality} coordinates; ${s.status}.`; return {km,total,verdict,why}; }
+    function run(){ const lat=parseFloat(document.getElementById("lat").value), lon=parseFloat(document.getElementById("lon").value); if(Number.isNaN(lat)||Number.isNaN(lon)){ alert("Set latitude and longitude (click the map)."); return; } setProject(lat,lon); const ctx={lat,lon,mw:Number(document.getElementById("mw").value||0),kv:document.getElementById("kv").value,ring:Number(document.getElementById("ring").value),hydroOnly:document.getElementById("hydroOnly").checked,hideConstrained:document.getElementById("hideConstrained").checked}; const ranked=DATA.stations.map(s=>{const sc=scoreStation(s,ctx); return sc?Object.assign({s},sc):null;}).filter(Boolean).sort((a,b)=>b.total-a.total); const box=document.getElementById("results"); document.getElementById("resCount").textContent=`(${ranked.length})`; if(!ranked.length){ box.innerHTML="<p class='muted'>No ISTS station inside this ring. Increase the ring.</p>"; return; } box.innerHTML=ranked.slice(0,12).map((r,i)=>{ const s=r.s; const vBadge=r.verdict==="Suitable"?"ok":r.verdict==="Unsuitable"?"bad":"warn"; return `<article class="card"><div class="score">${r.total.toFixed(0)}</div><h3>${i+1}. ${s.name}</h3><div class="meta">${s.region} · ${s.state} · ${(s.voltages||[]).join("/")} kV · ${r.km.toFixed(1)} km</div><div style="margin:6px 0"><span class="badge ${vBadge}">${r.verdict}</span><span class="badge">${s.status}</span><span class="badge">${s.location_quality}</span>${s.hydro_relevant?"<span class='badge ok'>hydro-relevant</span>":""}${s.constrained?"<span class='badge bad'>constrained</span>":""}</div><p class="muted">${r.why}</p><p class="muted">${s.remarks||""}</p><p class="muted">Source: ${s.source}</p></article>`; }).join(""); if(ranked[0]) map.fitBounds([[lat,lon],[ranked[0].s.lat,ranked[0].s.lon]],{padding:[40,40]}); }
+    [{n:"Luhri HEP, HP",lat:31.355,lon:77.450,mw:210,type:"HEP",kv:"220"},{n:"Dibang area, AR",lat:28.780,lon:95.880,mw:2880,type:"HEP",kv:"400"},{n:"Tehri PSP, UK",lat:30.378,lon:78.480,mw:1000,type:"PSP",kv:"400"},{n:"Sonbhadra PSP, UP",lat:24.55,lon:83.05,mw:672,type:"PSP",kv:"400"},{n:"Idukki / Kerala hills",lat:9.843,lon:76.976,mw:780,type:"HEP",kv:"220"}].forEach(x=>{ const b=document.createElement("button"); b.textContent=x.n; b.onclick=()=>{ document.getElementById("lat").value=x.lat; document.getElementById("lon").value=x.lon; document.getElementById("mw").value=x.mw; document.getElementById("ptype").value=x.type; document.getElementById("kv").value=x.kv; document.getElementById("pname").value=x.n; run(); }; document.getElementById("samples").appendChild(b); });
+    document.getElementById("btnGo").onclick=run;
+    document.getElementById("btnRefresh").onclick=()=>{ document.getElementById("srcTable").innerHTML="<tr><th>Source</th><th>URL</th></tr>"+SOURCES.official_live_pages.map(r=>`<tr><td>${r.name}</td><td><a href="${r.url}" target="_blank" rel="noopener">${r.url}</a></td></tr>`).join(""); document.getElementById("ingestList").innerHTML=SOURCES.ingested_files.map(f=>`${f.path} · ${f.as_of}`).join("<br>"); document.getElementById("dlgRefresh").showModal(); };
+    document.getElementById("closeRefresh").onclick=()=>document.getElementById("dlgRefresh").close();
+    document.getElementById("btnAbout").onclick=()=>document.getElementById("dlgAbout").showModal();
+    document.getElementById("closeAbout").onclick=()=>document.getElementById("dlgAbout").close();
+  </script>
+</body>
+</html>
