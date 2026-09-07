@@ -1,0 +1,23 @@
+{
+  "warehouse_version": "2026.09.07-v0.1",
+  "refresh_cadence": "Monthly, after CTUIL uploads a new bay-allocation / margin PDF",
+  "official_live_pages": [
+    {"name": "CTUIL home", "url": "https://www.ctuil.in"},
+    {"name": "Bay allocation & margin", "url": "https://ctuil.in/renewable-energy"},
+    {"name": "Tentative coordinates of RE PS", "url": "https://ctuil.in/Tentative-Coordinates-of-RE-PS"},
+    {"name": "Connectivity effective list", "url": "https://ctuil.in/connectivity-effective-list"},
+    {"name": "CMETS meetings", "url": "https://ctuil.in/ists-consultation-meeting"},
+    {"name": "Rolling plan reports", "url": "https://ctuil.in/annual-rolling-plan/reports"},
+    {"name": "Bulk-consumer ISTS S/s", "url": "https://ctuil.in/substation-bulk-consumers"},
+    {"name": "POWERGRID substations", "url": "https://www.powergrid.in/en/substation"},
+    {"name": "CEA transmission reports", "url": "https://cea.nic.in/transmission-reports/?lang=en"}
+  ],
+  "ingested_files": [
+    {"path": "files/ctuil/Allocation_of_bays_Apr25_R3.pdf", "as_of": "2025-04-30", "role": "bays + many coordinates"},
+    {"path": "files/ctuil/RE_Ss_margins_28-02-2025.pdf", "as_of": "2025-02-28", "role": "RE spare MW"},
+    {"path": "files/ctuil/Non_RE_SS_Margin_31-05-2024.pdf", "as_of": "2024-05-31", "role": "non-RE spare MW"},
+    {"path": "files/ctuil/ISTS_substations_bulk_consumers_31-05-2024.pdf", "as_of": "2024-05-31", "role": "bulk S/s coordinates"},
+    {"path": "files/ctuil/Detailed_Procedure_Grant_of_Connectivity_GNA_10-04-2026.pdf", "as_of": "2026-04-10", "role": "eligibility rules"},
+    {"path": "files/cea/CEA_Brahmaputra_HEP_Evacuation_Master_Plan_Oct2025.pdf", "as_of": "2025-10", "role": "NER hydro pooling philosophy"}
+  ]
+}
